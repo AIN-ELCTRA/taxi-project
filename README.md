@@ -20,6 +20,7 @@ Pandas — Data manipulation
 PyArrow — Parquet file handling
 PostgreSQL — Data storage
 Docker — Containerized database environment
+
 🏗️ System Architecture
 Parquet File
    ↓
@@ -44,6 +45,7 @@ passenger_count	INT
 trip_distance	FLOAT
 fare_amount	FLOAT
 total_amount	FLOAT
+
 🚀 Implementation
 Step 1: Data Loading
 Parquet file loaded using PyArrow
@@ -54,21 +56,25 @@ Data types adjusted for PostgreSQL compatibility
 Step 3: Data Ingestion
 Batch insertion using PostgreSQL COPY command
 Significant performance improvement over row-based insertion
+
 📊 Results
 Successfully inserted ~2.9 million records
 High performance using batch processing
 Efficient memory usage
 Scalable pipeline architecture
+
 ⚠️ Challenges
 Handling large datasets
 Data type mismatches (e.g., float vs integer)
 Optimizing insertion performance
 Managing memory usage
+
 🔮 Future Work
 Integrate Apache Kafka for real-time streaming
 Add data visualization dashboard
 Deploy using Docker Compose
 Scale to distributed data processing
+
 ▶️ How to Run
 1. Start PostgreSQL (Docker)
 docker compose up -d
@@ -76,11 +82,13 @@ docker compose up -d
 pip install pandas pyarrow psycopg2-binary
 3. Run data ingestion
 python load_data_copy.py
+
 📸 Example Output
 Inserted 1000000 rows so far...
 Inserted 2000000 rows so far...
 Bulk insert completed successfully
 Total inserted rows: 2935077
+
 📚 References
 Apache Software Foundation. (2023). Apache Parquet documentation. https://parquet.apache.org
 PostgreSQL Global Development Group. (2024). PostgreSQL documentation. https://www.postgresql.org/docs
