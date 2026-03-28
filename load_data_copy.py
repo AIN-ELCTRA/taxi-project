@@ -1,25 +1,33 @@
-import pyarrow.parquet as pq
+import os
+import io
 import pandas as pd
 import psycopg2
-from io import StringIO
 
-PARQUET_FILE = "dataset/yellow_tripdata_2025-01.parquet"
-BATCH_SIZE = 100000
+# ----------------------------
+# Environment variables
+# ----------------------------
+DB_USER = os.getenv("POSTGRES_USER", "postgres")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+DB_HOST = os.getenv("POSTGRES_HOST", "db")
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+DB_NAME = os.getenv("POSTGRES_DB", "taxi_db")
 
-conn = psycopg2.connect(
-    host="localhost",
-    database="taxi_db",
-    user="postgres",
-    password="postgres"
-)
-cursor = conn.cursor()
+# ----------------------------
+# File path
+# ----------------------------
+FILE_PATH = "dataset/yellow_tripdata_2025-01.parquet"
 
-parquet_file = pq.ParquetFile(PARQUET_FILE)
-total_inserted = 0
+# ----------------------------
+# Read parquet file
+# ----------------------------
+print("Reading Parquet file...")
+df = pd.read_parquet(FILE_PATH)
 
-for batch in parquet_file.iter_batches(
-    batch_size=BATCH_SIZE,
-    columns=[
+# ----------------------------
+# Keep and rename needed columns
+# ----------------------------
+df = df[
+    [
         "tpep_pickup_datetime",
         "tpep_dropoff_datetime",
         "passenger_count",
@@ -27,55 +35,103 @@ for batch in parquet_file.iter_batches(
         "fare_amount",
         "total_amount",
     ]
-):
-    chunk = batch.to_pandas()
+].copy()
 
-    chunk = chunk.rename(columns={
+df.rename(
+    columns={
         "tpep_pickup_datetime": "pickup_datetime",
         "tpep_dropoff_datetime": "dropoff_datetime",
-    })
+    },
+    inplace=True,
+)
 
-    chunk["passenger_count"] = pd.to_numeric(chunk["passenger_count"], errors="coerce")
-    chunk["trip_distance"] = pd.to_numeric(chunk["trip_distance"], errors="coerce")
-    chunk["fare_amount"] = pd.to_numeric(chunk["fare_amount"], errors="coerce")
-    chunk["total_amount"] = pd.to_numeric(chunk["total_amount"], errors="coerce")
+# ----------------------------
+# Basic cleaning
+# ----------------------------
+df = df.dropna()
 
-    chunk = chunk.dropna(subset=[
-        "pickup_datetime",
-        "dropoff_datetime",
-        "passenger_count",
-        "trip_distance",
-        "fare_amount",
-        "total_amount",
-    ])
+df["passenger_count"] = df["passenger_count"].astype(int)
+df["trip_distance"] = df["trip_distance"].astype(float)
+df["fare_amount"] = df["fare_amount"].astype(float)
+df["total_amount"] = df["total_amount"].astype(float)
 
-    chunk["passenger_count"] = chunk["passenger_count"].astype(int)
+print(f"Rows ready for loading: {len(df):,}")
 
-    buffer = StringIO()
-    chunk.to_csv(buffer, index=False, header=False)
-    buffer.seek(0)
+# ----------------------------
+# Connect to PostgreSQL
+# ----------------------------
+print("Connecting to PostgreSQL...")
+conn = psycopg2.connect(
+    host=DB_HOST,
+    port=DB_PORT,
+    dbname=DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD
+)
 
-    cursor.copy_expert(
-        """
-        COPY taxi_trips (
-            pickup_datetime,
-            dropoff_datetime,
-            passenger_count,
-            trip_distance,
-            fare_amount,
-            total_amount
-        )
-        FROM STDIN WITH CSV
-        """,
-        buffer
-    )
+cur = conn.cursor()
 
-    conn.commit()
-    total_inserted += len(chunk)
-    print(f"Inserted {total_inserted} rows so far...")
+# ----------------------------
+# Create table
+# ----------------------------
+create_table_query = """
+CREATE TABLE IF NOT EXISTS public.taxi_trips (
+    id SERIAL PRIMARY KEY,
+    pickup_datetime TIMESTAMP,
+    dropoff_datetime TIMESTAMP,
+    passenger_count INTEGER,
+    trip_distance DOUBLE PRECISION,
+    fare_amount DOUBLE PRECISION,
+    total_amount DOUBLE PRECISION
+);
+"""
+cur.execute(create_table_query)
+conn.commit()
 
-cursor.close()
+# ----------------------------
+# Optional: clear old data
+# ----------------------------
+cur.execute("TRUNCATE TABLE public.taxi_trips RESTART IDENTITY;")
+conn.commit()
+
+# ----------------------------
+# Export dataframe to CSV buffer
+# ----------------------------
+print("Preparing in-memory CSV buffer for COPY...")
+buffer = io.StringIO()
+df.to_csv(buffer, index=False, header=False)
+buffer.seek(0)
+
+# ----------------------------
+# COPY into PostgreSQL
+# ----------------------------
+copy_query = """
+COPY public.taxi_trips (
+    pickup_datetime,
+    dropoff_datetime,
+    passenger_count,
+    trip_distance,
+    fare_amount,
+    total_amount
+)
+FROM STDIN WITH CSV
+"""
+
+print("Loading data into PostgreSQL with COPY...")
+cur.copy_expert(copy_query, buffer)
+conn.commit()
+
+# ----------------------------
+# Check row count
+# ----------------------------
+cur.execute("SELECT COUNT(*) FROM public.taxi_trips;")
+row_count = cur.fetchone()[0]
+
+print(f"Data loading complete. Rows in table: {row_count:,}")
+
+# ----------------------------
+# Close connection
+# ----------------------------
+cur.close()
 conn.close()
-
-print("Bulk insert with batch COPY completed successfully ✅")
-print(f"Total inserted rows: {total_inserted}")
+print("Connection closed.")

@@ -1,6 +1,8 @@
+import os
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from sqlalchemy import create_engine, text
 
 # ----------------------------
@@ -78,10 +80,6 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    div[data-testid="stMetric"] {
-        background: transparent;
-    }
-
     hr {
         border: none;
         height: 1px;
@@ -101,14 +99,17 @@ st.markdown(
 )
 
 # ----------------------------
+# Environment variables
+# ----------------------------
+DB_USER = os.getenv("POSTGRES_USER", "postgres")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+DB_HOST = os.getenv("POSTGRES_HOST", "db")
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+DB_NAME = os.getenv("POSTGRES_DB", "taxi_db")
+
+# ----------------------------
 # Database connection
 # ----------------------------
-DB_USER = "postgres"
-DB_PASSWORD = "postgres"
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "taxi_db"
-
 @st.cache_resource
 def get_engine():
     connection_string = (
@@ -119,7 +120,7 @@ def get_engine():
 engine = get_engine()
 
 # ----------------------------
-# Get min/max dates
+# Get date bounds
 # ----------------------------
 @st.cache_data
 def get_date_bounds():
@@ -139,6 +140,7 @@ max_date = pd.to_datetime(date_bounds.loc[0, "max_date"]).date()
 # Sidebar filters
 # ----------------------------
 st.sidebar.markdown("## Filters")
+
 date_range = st.sidebar.date_input(
     "Pickup date range",
     value=(min_date, max_date),
@@ -170,9 +172,11 @@ max_fare = st.sidebar.slider(
 st.sidebar.markdown("---")
 st.sidebar.write(f"Selected start date: **{start_date}**")
 st.sidebar.write(f"Selected end date: **{end_date}**")
+st.sidebar.write(f"Max distance filter: **{max_distance} mi**")
+st.sidebar.write(f"Max fare filter: **${max_fare}**")
 
 # ----------------------------
-# Queries with filters
+# SQL queries
 # ----------------------------
 kpi_query = text("""
 SELECT
@@ -267,7 +271,7 @@ except Exception as e:
     st.stop()
 
 # ----------------------------
-# Handle empty result
+# Handle empty data
 # ----------------------------
 if kpi_df.empty or pd.isna(kpi_df.loc[0, "total_trips"]) or int(kpi_df.loc[0, "total_trips"]) == 0:
     st.warning("No data found for the selected filters.")
@@ -321,7 +325,7 @@ with col4:
 st.markdown("<hr>", unsafe_allow_html=True)
 
 # ----------------------------
-# Matplotlib dark style helper
+# Chart style helper
 # ----------------------------
 def style_dark_axes(ax):
     ax.set_facecolor("#111827")
@@ -349,8 +353,10 @@ with left:
     ax.set_ylabel("Number of Trips")
     ax.set_title("Trips by Pickup Hour")
     style_dark_axes(ax)
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
@@ -358,16 +364,23 @@ with right:
     st.markdown('<div class="section-title">Daily Trip Trend</div>', unsafe_allow_html=True)
 
     daily_trend_df["trip_date"] = pd.to_datetime(daily_trend_df["trip_date"])
-    fig, ax = plt.subplots(figsize=(8, 4))
+
+    fig, ax = plt.subplots(figsize=(10, 4))
     fig.patch.set_facecolor("#111827")
-    ax.plot(daily_trend_df["trip_date"], daily_trend_df["trip_count"])
+    ax.plot(daily_trend_df["trip_date"], daily_trend_df["trip_count"], linewidth=2)
     ax.set_xlabel("Date")
     ax.set_ylabel("Trips")
     ax.set_title("Daily Trip Trend")
+
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+
     style_dark_axes(ax)
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------
@@ -386,8 +399,10 @@ with left:
     ax.set_ylabel("Number of Trips")
     ax.set_title("Passenger Count Distribution")
     style_dark_axes(ax)
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
@@ -401,8 +416,10 @@ with right:
     ax.set_ylabel("Frequency")
     ax.set_title("Trip Distance Distribution")
     style_dark_axes(ax)
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------
@@ -422,6 +439,7 @@ ax.set_xlabel("Trip Distance (miles)")
 ax.set_ylabel("Fare Amount ($)")
 ax.set_title("Fare Amount vs Trip Distance")
 style_dark_axes(ax)
+plt.tight_layout()
 st.pyplot(fig)
 plt.close(fig)
 
@@ -432,5 +450,5 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ----------------------------
 st.markdown('<div class="table-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title">Raw Data Sample</div>', unsafe_allow_html=True)
-st.dataframe(sample_df, use_container_width=True)
+st.dataframe(sample_df, width="stretch")
 st.markdown('</div>', unsafe_allow_html=True)
