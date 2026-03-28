@@ -1,78 +1,75 @@
-# 🚖 Taxi Data Engineering & Analytics Dashboard
+🚖 Taxi Data Engineering & Analytics Dashboard
+📌 Overview
 
-## 📌 Overview
-This project is a **data engineering pipeline + analytics dashboard** built using the NYC Taxi dataset.  
-It demonstrates how to process raw data and visualize key insights using modern tools.
+This project is a data engineering pipeline and analytics dashboard built using the NYC Taxi dataset.
+It demonstrates how to process large-scale data, store it efficiently, and visualize insights through an interactive dashboard.
 
-The project focuses on:
-- Efficient data ingestion
-- Data transformation & storage
-- Interactive analytics dashboard
+The project is fully containerized using Docker, ensuring reproducibility and easy setup across different environments.
 
----
 
-## 🏗️ Architecture
+🏗️ Architecture
+
 Parquet Dataset
-↓
-Python Processing (Pandas / PyArrow)
-↓
-Data Cleaning & Transformation
-↓
-Batch Processing
-↓
-PostgreSQL Database
-↓
-Streamlit Dashboard
+      ↓
+Python Data Loader (Pandas / PyArrow)
+      ↓
+PostgreSQL (Docker Container)
+      ↓
+Streamlit Dashboard (Docker Container)
 
 
----
+⚙️ Technologies Used
 
-## ⚙️ Technologies Used
+Python 🐍
+Pandas / PyArrow
+PostgreSQL 🐘
+Streamlit 📊
+Docker 🐳 (Containerization)
 
-- Python 🐍
-- Pandas / PyArrow
-- PostgreSQL 🐘
-- Docker 🐳
-- Streamlit 📊
 
----
+📊 Dashboard Features
 
-## 📊 Dashboard Features
+Total Trips KPI
+Total Revenue KPI
+Average Fare
+Average Distance
+Trips by Pickup Hour
+Daily Trip Trends
+Passenger Distribution
+Distance Distribution
+Fare vs Distance Analysis
+Sidebar Filters (Date Range, Distance, Fare)
+Modern Dark Theme UI
 
-- Total Trips
-- Total Revenue
-- Average Fare
-- Average Distance
-- Trips by Pickup Hour
-- Daily Trip Trends
-- Date Range Filtering (Sidebar)
-- Modern Dark Theme UI
 
----
+🐳 Run with Docker (Recommended)
 
-## 🚀 How to Run the Project
+1. Start all services
+docker compose up --build -d
+2. Load the dataset into PostgreSQL
+docker compose exec dashboard python load_data_copy.py
+3. Open the dashboard
+http://localhost:8501
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/AIN-ELCTRA/taxi-project.git
-cd taxi-project
 
-2. Install dependencies
-pip install pandas streamlit psycopg2 matplotlib
+💻 Run Without Docker (Optional)
 
-3. Run the dashboard
+Install dependencies
+pip install -r requirements.txt
+Run dashboard
 python -m streamlit run dashboard.py
 
-4. Open in browser
-http://localhost:8501
+
+📂 Project Structure
+
 taxi-project/
 │
-├── dataset/                # Raw dataset (ignored in Git)
-├── dashboard.py            # Streamlit dashboard
-├── producer.py             # Data ingestion
-├── load_data_copy.py       # Batch loading script
-├── db_test.py              # Database connection test
-├── docker-compose.yml      # PostgreSQL container
-├── README.md               # Project documentation
-└── .gitignore              # Ignore unnecessary files
-
+├── dataset/                 # Raw dataset (ignored in Git)
+├── dashboard.py             # Streamlit dashboard
+├── load_data_copy.py        # Data loading script (COPY method)
+├── docker-compose.yml       # Docker services
+├── Dockerfile               # Streamlit container setup
+├── requirements.txt         # Python dependencies
+├── .env                     # Environment variables (optional)
+├── .gitignore               # Ignored files
+└── README.md                # Documentation
